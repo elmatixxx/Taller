@@ -1,0 +1,16 @@
+-- Ejecutar una sola vez en Supabase SQL Editor
+create extension if not exists "pgcrypto";
+create type public.estado_ot as enum ('Recibido','En Diagnóstico','Esperando Repuestos','En Reparación','Control de Calidad','Listo para Entrega','Entregado');
+create type public.categoria_item as enum ('mano_obra','repuesto','extra');
+create type public.tipo_documento as enum ('orden_trabajo','cotizacion');
+create table public.clientes (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users(id) on delete cascade, nombre_completo text not null, rut text, telefono text, email text, created_at timestamptz not null default now());
+create table public.vehiculos (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users(id) on delete cascade, cliente_id uuid not null references public.clientes(id) on delete cascade, patente text not null, marca text not null, modelo text not null, anio integer, kilometraje integer, vin text, color text, created_at timestamptz not null default now());
+create table public.ordenes_trabajo (id uuid primary key default gen_random_uuid(), numero bigint generated always as identity unique, user_id uuid not null default auth.uid() references auth.users(id) on delete cascade, tipo public.tipo_documento not null default 'orden_trabajo', cliente_id uuid not null references public.clientes(id), vehiculo_id uuid not null references public.vehiculos(id), estado public.estado_ot not null default 'Recibido', trabajos text, observaciones_entrada text, observaciones_salida text, incluir_iva boolean not null default true, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create table public.items_orden (id uuid primary key default gen_random_uuid(), orden_id uuid not null references public.ordenes_trabajo(id) on delete cascade, user_id uuid not null default auth.uid() references auth.users(id) on delete cascade, categoria public.categoria_item not null, descripcion text not null, cantidad numeric(12,2) not null default 1 check (cantidad > 0), precio_unitario numeric(14,2) not null default 0 check (precio_unitario >= 0), created_at timestamptz not null default now());
+alter table public.clientes enable row level security; alter table public.vehiculos enable row level security; alter table public.ordenes_trabajo enable row level security; alter table public.items_orden enable row level security;
+create policy "usuarios manejan sus clientes" on public.clientes for all to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "usuarios manejan sus vehiculos" on public.vehiculos for all to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "usuarios manejan sus ordenes" on public.ordenes_trabajo for all to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "usuarios manejan sus items" on public.items_orden for all to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
+create or replace function public.touch_updated_at() returns trigger language plpgsql as $$ begin new.updated_at=now(); return new; end; $$;
+create trigger ordenes_updated_at before update on public.ordenes_trabajo for each row execute function public.touch_updated_at();

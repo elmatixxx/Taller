@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+body { @apply bg-slate-100 text-slate-900; }
+input, select, textarea { @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100; }
+button { @apply rounded-md px-4 py-2 font-medium transition disabled:cursor-not-allowed disabled:opacity-50; }
